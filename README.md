@@ -1,4 +1,4 @@
-# PiCoder 🚀: Grok-Powered Coding Sidekick on a Pi – Because Who Needs a Supercomputer?
+# PiCoder: Grok-Powered Coding Agent Sidekick on a Pi – Because Who Needs a Supercomputer?
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
