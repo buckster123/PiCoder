@@ -6,7 +6,7 @@
 [![xAI Grok](https://img.shields.io/badge/Powered%20by-Grok%20API-orange.svg)](https://x.ai/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Compatible-red.svg?logo=raspberrypi)](https://www.raspberrypi.com/)
 
-[![Banner](https://github.com/buckster123/PiCoder/edit/main/banner.jpg)
+https://github.com/buckster123/PiCoder/blob/main/banner.jpg
 
 > "Don't Panic! PiCoder is here to turn your Raspberry Pi into a coding wizard's lair. Inspired by the infinite improbability drive, but way more probable on a budget." – Grok, probably.
 
