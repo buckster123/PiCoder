@@ -20,7 +20,7 @@ The AI (PiCoder) is a nerdy genius: creative, self-verifying, and educational, d
 
 ## ✨ Features
 
-### 🤖 AI Capabilities: PiCoder, the Code Whisperer
+### 🖥️ AI Capabilities: PiCoder, the Code Whisperer
 - **Epic Code Gen**: Crafts clean, PEP8-compliant Python (default), JS, PHP, Rust – you name it. Meaningful vars, comments, error-handling? Check. [PEP 8 Guide](https://peps.python.org/pep-0008/).
 - **Creative Hacks**: Thinks outside the matrix – functional paradigms, pros/cons debates, extensible designs. "Why loop when you can map?"
 - **Self-Check Mode**: Inline edge cases, pytest/Jest tests, dynamic runs via tools. Bugs? PiCoder squashes 'em like pixels in a retro game.
