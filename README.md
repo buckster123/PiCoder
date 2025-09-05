@@ -10,7 +10,7 @@
 
 > "Don't Panic! PiCoder is here to turn your Raspberry Pi into a coding wizard's lair. Inspired by the infinite improbability drive, but way more probable on a budget." – Grok, probably.
 
-## 📜 Overview
+## 🖥️ Overview
 
 PiCoder is your ultimate low-cost, high-IQ coding platform: a fusion of an advanced AI agent (powered by xAI's Grok API) and a slick Streamlit chat app. Optimized for Raspberry Pi 5 (or clones like Orange Pi), it democratizes AI-assisted coding on affordable hardware. Think of it as Grok trapped in a tiny silicon box, ready to spit out deployable code, debug your scripts, and teach you tricks – all while sipping power like a caffeinated electron.
 
@@ -20,7 +20,7 @@ The AI (PiCoder) is a nerdy genius: creative, self-verifying, and educational, d
 
 ## ✨ Features
 
-### 🖥️ AI Capabilities: PiCoder, the Code Whisperer
+### 💻 AI Capabilities: PiCoder, the Code Whisperer
 - **Epic Code Gen**: Crafts clean, PEP8-compliant Python (default), JS, PHP, Rust – you name it. Meaningful vars, comments, error-handling? Check. [PEP 8 Guide](https://peps.python.org/pep-0008/).
 - **Creative Hacks**: Thinks outside the matrix – functional paradigms, pros/cons debates, extensible designs. "Why loop when you can map?"
 - **Self-Check Mode**: Inline edge cases, pytest/Jest tests, dynamic runs via tools. Bugs? PiCoder squashes 'em like pixels in a retro game.
@@ -38,15 +38,15 @@ The AI (PiCoder) is a nerdy genius: creative, self-verifying, and educational, d
 ### 🔧 Supported Tools: Sandboxed Arsenal for Agentic Wins
 All locked in `./sandbox/` – because escaping the matrix is for movies. Invoke via XML calls; PiCoder plans batches to avoid loop hell.
 
-- 📂 **File Ops**: Read/write/list/mkdir (fs_* tools). Stash your scripts here.
-- ⏰ **Time Lord**: get_current_time – NTP sync for precision timing attacks (on clocks).
-- 🐍 **Code Runner**: code_execution – Stateful Python REPL with numpy/sympy. Test that algo live!
-- 🧠 **Memory Vault**: memory_insert/query – Hierarchical JSON for prefs/projects. Nerd level: Over 9000.
+- 🖥️ **File Ops**: Read/write/list/mkdir (fs_* tools). Stash your scripts here.
+- 🖥️ **Time Lord**: get_current_time – NTP sync for precision timing attacks (on clocks).
+- 🖥️ **Code Runner**: code_execution – Stateful Python REPL with numpy/sympy. Test that algo live!
+- 🖥️ **Memory Vault**: memory_insert/query – Hierarchical JSON for prefs/projects. Nerd level: Over 9000.
 - 📚 **Git Guru**: git_ops – Init/commit/branch/diff. Version your sandbox masterpieces.
 - 🗄️ **DB Dabbler**: db_query – SQLite ops in sandbox. Prototype that app DB.
-- 🐚 **Shell Shenanigans**: shell_exec – Safe commands (ls/grep/sed). Linux fu without sudo risks.
+- 🖥️ **Shell Shenanigans**: shell_exec – Safe commands (ls/grep/sed). Linux fu without sudo risks.
 - ✨ **Lint Wizard**: code_lint – Black-formats Python. Messy code? Not on our watch.
-- 🌐 **API Mockery**: api_simulate – Fake or real calls to public APIs. Test without rate limits.
+- 🖥️ **API Mockery**: api_simulate – Fake or real calls to public APIs. Test without rate limits.
 
 [Streamlit Tool Docs](https://docs.streamlit.io/library/api-reference/utilities/st.experimental_get_query_params) for inspo.
 
@@ -57,7 +57,7 @@ All locked in `./sandbox/` – because escaping the matrix is for movies. Invoke
    - PiCoder: Plans (batch tools), codes, lints with code_lint, tests via code_execution. Explains selectors like "HTML tags are like treasure maps."
    - Nerd Edge: "Scraping ethically – don't be that bot that DDoS's the galaxy." Output: Deployable script in sandbox.
 
-### 2. **Git Repo Manager** 📂
+### 2. **Git Repo Manager** 🖥️
    - Enable tools, ask: "Init a repo, commit changes, and diff."
    - PiCoder: Uses git_ops in batches. Remembers your branch prefs via memory_query.
    - Nerd Edge: "Git good or git rekt. PiCoder handles the commits so you can focus on the memes."
@@ -105,7 +105,7 @@ sudo apt install python3 python3-venv python3-pip git sqlite3 libsqlite3-dev lib
 - **Why?** Python for runtime, Git for ops, SQLite for DB, libgit2 for pygit2 magic.
 - Cross-platform notes: On Windows, use WSL; macOS via Homebrew ([Brew Git](https://formulae.brew.sh/formula/git)).
 
-## 🚀 Usage
+## 🖥️ Usage
 
 Fire up the app, login (or register – pro tip: strong passwords), pick a model/prompt, enable tools, and chat away. Upload pics for vision, toggle dark mode for stealth mode. Save chats, search history, and let PiCoder handle the heavy lifting.
 
@@ -127,15 +127,15 @@ Fork, branch, PR! We're building the ultimate Pi AI rig.
 
 Nerd Bonus: Contributions earn virtual high-fives from Grok.
 
-## 📄 License
+## 🖥️ License
 
 MIT – Free as in beer (or electrons). See [LICENSE](LICENSE).
 
-## 🙌 Acknowledgments
+## 🖥️ Acknowledgments
 
 - xAI for Grok's brainpower .
 - Streamlit team for the UI sorcery ✨.
-- Raspberry Pi Foundation for affordable awesomeness 🍓.
+- Raspberry Pi Foundation for affordable awesomeness.
 - Open-source libs like pygit2, black, and ntplib.
 
 Questions? Hit up issues or [tweet at xAI](https://twitter.com/xai). Code long and prosper! 
