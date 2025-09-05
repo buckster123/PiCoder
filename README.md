@@ -38,7 +38,7 @@ All locked in `./sandbox/` – because escaping the matrix is for movies. Invoke
 
 - 📂 **File Ops**: Read/write/list/mkdir (fs_* tools). Stash your scripts here.
 - ⏰ **Time Lord**: get_current_time – NTP sync for precision timing attacks (on clocks).
-- 🐍 **Code Runner**: code_execution – Stateful Python REPL with numpy/sympy/pygame. Test that algo live!
+- 🐍 **Code Runner**: code_execution – Stateful Python REPL with numpy/sympy. Test that algo live!
 - 🧠 **Memory Vault**: memory_insert/query – Hierarchical JSON for prefs/projects. Nerd level: Over 9000.
 - 📚 **Git Guru**: git_ops – Init/commit/branch/diff. Version your sandbox masterpieces.
 - 🗄️ **DB Dabbler**: db_query – SQLite ops in sandbox. Prototype that app DB.
@@ -72,117 +72,36 @@ All locked in `./sandbox/` – because escaping the matrix is for movies. Invoke
 
 More ideas? [Raspberry Pi Projects](https://projects.raspberrypi.org/) + PiCoder = Infinite Awesomeness.
 
-## 🛡️ Installation: Noob-Proof Guide for Headless Raspberry Pi 5
+## 🛡️ Installation
 
-Designed for headless setup (no monitor needed – SSH in!), but runs great on desktop Raspberry Pi OS too. We'll cover everything step-by-step. If you're a total beginner, follow along; we've got your back.
+### Prerequisites
+- **Hardware**: Raspberry Pi 5 💻 (or clones). Desktop? Sure, but where's the fun?
+- **Software**:
+  - Python 3.8+ 🐍 ([Download](https://www.python.org/downloads/)).
+  - Git 📚 ([Install Guide](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)).
+  - SQLite 🔗 (usually pre-installed; [Docs](https://www.sqlite.org/docs.html)).
+  - libgit2 for pygit2 ([Debian Guide](https://packages.debian.org/search?keywords=libgit2-dev)).
+- **API Key**: Grab from [xAI Dashboard](https://x.ai/). Store in `.env`.
 
-### Step 0: Prep Your Pi
-- Flash Raspberry Pi OS (Lite for headless, or Full for desktop) using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
-- Enable SSH: In Imager, set hostname, enable SSH, set user/password.
-- Boot the Pi, find its IP (e.g., via router or `hostname -I`), SSH in: `ssh pi@your-pi-ip` (default user: pi, password: raspberry – change it!).
-- Update system: `sudo apt update && sudo apt upgrade -y`.
+### Steps
+1. Clone: `git clone https://github.com/yourusername/picoder.git && cd picoder`
+2. Venv: `python3 -m venv venv && source venv/bin/activate`
+3. Install: `pip install -r requirements.txt`
+4. Env: Echo `XAI_API_KEY=yourkey` > .env
+5. Launch: `streamlit run app.py`
+6. Browse: http://localhost:8501 (or Pi IP for remote hacking).
 
-### Step 1: Install System Dependencies
-These are essential for the app and tools. Run the provided `install.sh` script (detailed below), or manually:
+Trouble? [Streamlit Forum](https://discuss.streamlit.io/) or open an issue.
 
-- **Core Packages**:
-  - `python3` and `python3-venv`: For running the app.
-  - `python3-pip`: Package manager.
-  - `git`: For cloning and git_ops tool.
-  - `sqlite3` and `libsqlite3-dev`: For databases.
-  - `libgit2-dev`: For pygit2 (Git tool).
-  - `build-essential`: Compilers for building packages.
-  - **For code_execution Tool**: To support libraries like numpy/sympy/pygame, we need system deps for compilation (e.g., libatlas-base-dev for numpy, libjpeg-dev for pygame if using images).
-    - Note: If you hit "snappy" issues (e.g., python-snappy dep errors), it's likely from optional compression libs – we've avoided it here. For numpy: `sudo apt install libatlas-base-dev`. For pygame: `sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev libportmidi-dev`. Sympy is pure Python, no extra deps.
+## 🔌 System Package Dependencies
 
-Manual install command:
+For Raspberry Pi OS (Debian-based):
 ```
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git sqlite3 libsqlite3-dev libgit2-dev build-essential libatlas-base-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev libportmidi-dev
+sudo apt install python3 python3-venv python3-pip git sqlite3 libsqlite3-dev libgit2-dev build-essential
 ```
-
-### Step 2: Clone and Set Up
-- Clone: `git clone https://github.com/yourusername/picoder.git && cd picoder`
-- Venv: `python3 -m venv venv && source venv/bin/activate`
-- Install Python packages: `pip install -r requirements.txt`
-  - This includes extras for code_execution: numpy, sympy, pygame (pre-compiled wheels work on Pi ARM).
-
-### Step 3: Configure
-- Create `.env`: `echo "XAI_API_KEY=your_xai_api_key_here" > .env` (get key from [x.ai](https://x.ai/)).
-- (Optional) For headless: Run Streamlit on port 8501, access via browser on another machine: http://your-pi-ip:8501.
-
-### Step 4: Run
-- `streamlit run app.py`
-- For background/headless: Use `nohup streamlit run app.py &` or systemd service (see below).
-
-### Install Script: install.sh
-Save this as `install.sh`, make executable (`chmod +x install.sh`), and run `sudo ./install.sh`. It handles everything for headless Pi 5.
-
-```bash
-#!/bin/bash
-
-# PiCoder Install Script for Headless Raspberry Pi 5
-# Run as sudo for system packages.
-
-echo "Updating system..."
-apt update && apt upgrade -y
-
-echo "Installing system dependencies..."
-apt install -y python3 python3-venv python3-pip git sqlite3 libsqlite3-dev libgit2-dev build-essential libatlas-base-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev libportmidi-dev
-
-echo "Cloning repo..."
-git clone https://github.com/yourusername/picoder.git
-cd picoder
-
-echo "Setting up venv..."
-python3 -m venv venv
-source venv/bin/activate
-
-echo "Installing Python packages..."
-pip install -r requirements.txt
-
-echo "Reminder: Add your XAI_API_KEY to .env file!"
-echo "To run: source venv/bin/activate && streamlit run app.py"
-
-# Optional: Systemd service for headless auto-start
-cat << EOF > /etc/systemd/system/picoder.service
-[Unit]
-Description=PiCoder Streamlit App
-After=network.target
-
-[Service]
-User=pi
-WorkingDirectory=/home/pi/picoder
-ExecStart=/home/pi/picoder/venv/bin/streamlit run app.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-echo "To enable auto-start: sudo systemctl enable picoder.service"
-echo "Installation complete! 🚀"
-```
-
-Trouble? Common fixes:
-- **Dep Errors**: If numpy fails (e.g., BLAS issues), ensure libatlas-base-dev is installed. For pygame, check SDL deps.
-- **Headless Access**: Forward port 8501 or use ngrok ([Ngrok Guide](https://ngrok.com/docs/getting-started/)).
-- **Desktop Mode**: Install Raspberry Pi OS with desktop, run in terminal – GUI optional.
-- Questions? [Raspberry Pi Forums](https://forums.raspberrypi.com/) or open an issue.
-
-## 🔌 System Package Dependencies (Detailed)
-
-- `python3`, `python3-venv`, `python3-pip`: Core Python.
-- `git`: For repo cloning and git_ops.
-- `sqlite3`, `libsqlite3-dev`: Database support.
-- `libgit2-dev`: Git library for pygit2.
-- `build-essential`: Compilers (gcc, etc.) for building wheels.
-- `libatlas-base-dev`: For numpy linear algebra.
-- SDL libs (`libsdl2-dev` etc.): For pygame in code_execution (graphics/audio).
-- No "snappy" required – if you see errors, it's likely from unrelated packages; our reqs avoid it.
-
-For other platforms: Adapt with apt/yum/brew. E.g., macOS: `brew install python git sqlite libgit2`.
+- **Why?** Python for runtime, Git for ops, SQLite for DB, libgit2 for pygit2 magic.
+- Cross-platform notes: On Windows, use WSL; macOS via Homebrew ([Brew Git](https://formulae.brew.sh/formula/git)).
 
 ## 🚀 Usage
 
