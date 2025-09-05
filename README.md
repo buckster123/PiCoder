@@ -8,8 +8,6 @@
 
 ![PiCoder Banner](https://github.com/buckster123/PiCoder/blob/main/banner.jpg)
 
-![PiCoder Banner](https://your-image-url-or-repo-path.png)
-
 > "Don't Panic! PiCoder is here to turn your Raspberry Pi into a coding wizard's lair. Inspired by the infinite improbability drive, but way more probable on a budget." – Grok, probably.
 
 ## 📜 Overview
@@ -69,7 +67,7 @@ All locked in `./sandbox/` – because escaping the matrix is for movies. Invoke
    - PiCoder: db_query for setup/inserts, shell_exec to ls results. Educational: "SQL joins are like Voltron – better together."
    - Nerd Edge: "From zero to DB hero in one chat. Bonus: Simulate APIs with api_simulate for that full-stack feel."
 
-### 4. **Linux Automation Script** 🐧
+### 4. **Linux Automation Script** 
    - "Write a Bash script to monitor Pi temps, lint my Python helper."
    - PiCoder: Defaults to Bash, uses shell_exec for demos, code_lint for Python parts.
    - Nerd Edge: "Overheat your Pi? Not with this. It's cooler than absolute zero."
@@ -120,7 +118,7 @@ Pro Tip: Start with "Teach me Rust basics while building a CLI tool." Watch the 
 - **Themes**: CSS in app.py – hack away for custom neon.
 - **Extend Tools**: Add to TOOLS list in code. [OpenAI SDK Docs](https://platform.openai.com/docs/libraries/python-library) for inspo.
 
-## 🤝 Contributing
+## Contributing
 
 Fork, branch, PR! We're building the ultimate Pi AI rig.
 - Focus: Pi optimizations, new tools (e.g., GPIO?), bug hunts.
@@ -135,9 +133,9 @@ MIT – Free as in beer (or electrons). See [LICENSE](LICENSE).
 
 ## 🙌 Acknowledgments
 
-- xAI for Grok's brainpower 🧠.
+- xAI for Grok's brainpower .
 - Streamlit team for the UI sorcery ✨.
 - Raspberry Pi Foundation for affordable awesomeness 🍓.
 - Open-source libs like pygit2, black, and ntplib.
 
-Questions? Hit up issues or [tweet at xAI](https://twitter.com/xai). Code long and prosper! 🖖
+Questions? Hit up issues or [tweet at xAI](https://twitter.com/xai). Code long and prosper! 
