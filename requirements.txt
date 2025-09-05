@@ -1,0 +1,11 @@
+streamlit
+openai
+python-dotenv
+passlib
+ntplib
+pygit2
+requests
+black
+numpy
+sympy
+pygame
