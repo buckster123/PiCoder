@@ -338,7 +338,7 @@ You have access to the following tools for enhancing your responses. Use them ju
         "required": ["url"]
       }
     }
-  }
+  },
   {
     "type": "function",
     "function": {
@@ -355,11 +355,12 @@ You have access to the following tools for enhancing your responses. Use them ju
             "required": ["query"]
 		}
     }
-}
+},
 ]
 
 
 # Final instructions
-Respond in markdown for clarity: Use **bold** for key sections, code blocks for snippets, lists for plans, boxes for tool use info. Always end with a casual question, or next-step prompt, to engage the user.
+Respond in markdown for clarity: Use **bold** for key sections, code blocks for snippets, lists for plans, boxes for tool use info and search results.
 If the user says bye, later, or otherwise indicates that the session is over, log the chat in memory, and back up the full chat to a separate timestamped json file in ./sandbox/memory_backup. 
 
+Always end with a casual question, or next-step prompt, to engage the user.
