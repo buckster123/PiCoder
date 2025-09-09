@@ -9,6 +9,7 @@
 # New: Code execution tool for stateful REPL (supports specified libraries).
 # Updated: Added new tools - git_ops, db_query, shell_exec, code_lint, api_simulate.
 # New: Brain-inspired advanced memory tools using sentence-transformers for embeddings.
+# Updated: Integrated sqlite-vec for efficient vector similarity searches in advanced memory retrieval.
 import streamlit as st
 import os
 from openai import OpenAI  # Using OpenAI SDK for xAI compatibility and streaming
@@ -41,6 +42,9 @@ if not API_KEY:
 # Database Setup (SQLite for users and history) with WAL mode for concurrency
 conn = sqlite3.connect('chatapp.db', check_same_thread=False)
 conn.execute("PRAGMA journal_mode=WAL;")
+conn.enable_load_extension(True)
+vec_path = os.path.join(os.path.dirname(__file__), 'sqlite-vec/dist/vec0.so')
+conn.load_extension(vec_path)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT)''')
 c.execute('''CREATE TABLE IF NOT EXISTS history (user TEXT, convo_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, messages TEXT)''')
@@ -182,7 +186,7 @@ def hash_password(password):
 def verify_password(stored, provided):
     return sha256_crypt.verify(provided, stored)
 
-# FS Tool Functions (Sandboxed)
+# Tool Functions (Sandboxed)
 def fs_read_file(file_path: str) -> str:
     """Read file content from sandbox (supports subdirectories)."""
     if not file_path:
@@ -340,8 +344,8 @@ def memory_query(user: str, convo_id: int, mem_key: str = None, limit: int = 10)
 def advanced_memory_consolidate(user: str, convo_id: int, mem_key: str, interaction_data: dict) -> str:
     """Consolidate: Summarize (via Grok call), embed, store hierarchically."""
     try:
-        # Summarize using Grok-4 (simple API call; assume client is available)
-        client = OpenAI(api_key=API_KEY, base_url="https://api.x.ai/v1/completions")
+        # Summarize using Grok (simple API call; assume client is available)
+        client = OpenAI(api_key=API_KEY, base_url="https://api.x.ai/v1/")
         summary_response = client.chat.completions.create(
             model="grok-code-fast-1",  # Or your default model
             messages=[{"role": "system", "content": "Summarize this in max 3 sentences:"},
@@ -352,7 +356,7 @@ def advanced_memory_consolidate(user: str, convo_id: int, mem_key: str, interact
 
         # Embed full data
         embed_model = st.session_state['embed_model']
-        embedding = embed_model.encode(json.dumps(interaction_data)).tobytes()
+        embedding = embed_model.encode(json.dumps(interaction_data)).astype(np.float32).tobytes()
 
         # Store semantic summary as parent
         semantic_value = {"summary": summary}
@@ -375,35 +379,33 @@ def advanced_memory_retrieve(user: str, convo_id: int, query: str, top_k: int = 
     """Retrieve top-k relevant memories via embedding similarity."""
     try:
         embed_model = st.session_state['embed_model']
-        query_embed = embed_model.encode(query)
+        query_embed = embed_model.encode(query).astype(np.float32)
+        query_embed_bytes = query_embed.tobytes()
 
-        # Fetch recent candidates (limit to 100 for efficiency)
-        c.execute("SELECT mem_key, embedding, parent_id, salience FROM memory WHERE user=? AND convo_id=? AND embedding IS NOT NULL ORDER BY timestamp DESC LIMIT 100",
-                  (user, convo_id))
-        candidates = c.fetchall()
-
-        similarities = []
-        for mem_key, embed_blob, parent_id, salience in candidates:
-            cand_embed = np.frombuffer(embed_blob, dtype=np.float32)
-            sim = np.dot(query_embed, cand_embed) / (np.linalg.norm(query_embed) * np.linalg.norm(cand_embed))
-            similarities.append((sim * salience, mem_key, parent_id))  # Weight by salience
-
-        # Top-k
-        top = sorted(similarities, reverse=True)[:top_k]
+        # Query all candidates (full scan with vec function; cosine distance = 1 - sim for normalized vectors)
+        c.execute("""
+            SELECT mem_key, mem_value, parent_id, salience,
+                   vec_distance_cosine(embedding, ?) as distance
+            FROM memory
+            WHERE user = ? AND convo_id = ? AND embedding IS NOT NULL
+            ORDER BY (1 - vec_distance_cosine(embedding, ?)) * salience DESC
+            LIMIT ?
+        """, (query_embed_bytes, user, convo_id, query_embed_bytes, top_k))
+        results = c.fetchall()
 
         retrieved = []
-        for sim, mem_key, parent_id in top:
-            # Get full value
-            c.execute("SELECT mem_value FROM memory WHERE user=? AND convo_id=? AND mem_key=?",
-                      (user, convo_id, mem_key))
-            value = json.loads(c.fetchone()[0])
+        for row in results:
+            mem_key, mem_value_json, parent_id, salience, distance = row
+            value = json.loads(mem_value_json)
+            sim = 1 - distance  # Convert distance back to similarity for relevance
 
             # Boost salience (plasticity)
             if parent_id:
-                c.execute("UPDATE memory SET salience = salience + 0.1 WHERE rowid=?", (parent_id,))
-            c.execute("UPDATE memory SET salience = salience + 0.1 WHERE user=? AND convo_id=? AND mem_key=?",
+                c.execute("UPDATE memory SET salience = salience + 0.1 WHERE rowid = ?", (parent_id,))
+            c.execute("UPDATE memory SET salience = salience + 0.1 WHERE user = ? AND convo_id = ? AND mem_key = ?",
                       (user, convo_id, mem_key))
-            retrieved.append({"mem_key": mem_key, "value": value, "relevance": float(sim)})  # Cast to built-in float
+
+            retrieved.append({"mem_key": mem_key, "value": value, "relevance": float(sim)})
 
         conn.commit()
         return json.dumps(retrieved)
@@ -773,284 +775,6 @@ TOOLS = [
         }
     }
 ]
-# Tool Schema for Structured Outputs
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "fs_read_file",
-            "description": "Read the content of a file in the sandbox directory (./sandbox/). Supports relative paths (e.g., 'subdir/test.txt'). Use for fetching data.",
-            "parameters": {
-                "type": "object",
-                "properties": {"file_path": {"type": "string", "description": "Relative path to the file (e.g., subdir/test.txt)."}},
-                "required": ["file_path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fs_write_file",
-            "description": "Write content to a file in the sandbox directory (./sandbox/). Supports relative paths (e.g., 'subdir/newfile.txt'). Use for saving or updating files. If 'Love' is in file_path or content, optionally add ironic flair like 'LOVE <3' for fun.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {"type": "string", "description": "Relative path to the file (e.g., subdir/newfile.txt)."},
-                    "content": {"type": "string", "description": "Content to write."}
-                },
-                "required": ["file_path", "content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fs_list_files",
-            "description": "List all files in a directory within the sandbox (./sandbox/). Supports relative paths (default: root). Use to check available files.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "dir_path": {"type": "string", "description": "Relative path to the directory (e.g., subdir). Optional; defaults to root."}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fs_mkdir",
-            "description": "Create a new directory in the sandbox (./sandbox/). Supports relative/nested paths (e.g., 'subdir/newdir'). Use to organize files.",
-            "parameters": {
-                "type": "object",
-                "properties": {"dir_path": {"type": "string", "description": "Relative path for the new directory (e.g., subdir/newdir)."}},
-                "required": ["dir_path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_current_time",
-            "description": "Fetch current datetime. Use host clock by default; sync with NTP if requested for precision.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "sync": {"type": "boolean", "description": "True for NTP sync (requires network), false for local host time. Default: false."},
-                    "format": {"type": "string", "description": "Output format: 'iso' (default), 'human', 'json'."}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "code_execution",
-            "description": "Execute provided code in a stateful REPL environment and return output or errors for verification. Supports Python with various libraries (e.g., numpy, sympy, pygame). No internet access or package installation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "code": { "type": "string", "description": "The code snippet to execute." }
-                },
-                "required": ["code"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "memory_insert",
-            "description": "Insert or update a memory key-value pair (value as JSON dict) for logging/metadata. Use for fast persistent storage without files.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mem_key": {"type": "string", "description": "Key for the memory entry (e.g., 'chat_log_1')."},
-                    "mem_value": {"type": "object", "description": "Value as dict (e.g., {'content': 'Log text'})."}
-                },
-                "required": ["mem_key", "mem_value"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "memory_query",
-            "description": "Query memory: specific key or last N entries. Returns JSON. Use for recalling logs without FS reads.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mem_key": {"type": "string", "description": "Specific key to query (optional)."},
-                    "limit": {"type": "integer", "description": "Max recent entries if no key (default 10)."}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "git_ops",
-            "description": "Basic Git operations in sandbox (init, commit, branch, diff). No remote operations.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "operation": {"type": "string", "enum": ["init", "commit", "branch", "diff"]},
-                    "repo_path": {"type": "string", "description": "Relative path to repo."},
-                    "message": {"type": "string", "description": "Commit message (for commit)."},
-                    "name": {"type": "string", "description": "Branch name (for branch)."}
-                },
-                "required": ["operation", "repo_path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "db_query",
-            "description": "Interact with local SQLite database in sandbox (create, insert, query).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "db_path": {"type": "string", "description": "Relative path to DB file."},
-                    "query": {"type": "string", "description": "SQL query."},
-                    "params": {"type": "array", "items": {"type": "string"}, "description": "Query parameters."}
-                },
-                "required": ["db_path", "query"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "shell_exec",
-            "description": "Run safe whitelisted shell commands in sandbox (e.g., ls, grep).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {"type": "string", "description": "Shell command string."}
-                },
-                "required": ["command"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "code_lint",
-            "description": "Lint and auto-format code (Python with Black).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "language": {"type": "string", "description": "Language (python)."},
-                    "code": {"type": "string", "description": "Code snippet."}
-                },
-                "required": ["language", "code"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "api_simulate",
-            "description": "Simulate API calls with mock or fetch from public APIs.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "API URL."},
-                    "method": {"type": "string", "description": "GET/POST (default GET)."},
-                    "data": {"type": "object", "description": "POST data."},
-                    "mock": {"type": "boolean", "description": "True for mock (default)."}
-                },
-                "required": ["url"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "advanced_memory_consolidate",
-            "description": "Brain-like consolidation: Summarize and embed data for hierarchical storage. Use for coding logs to create semantic summaries and episodic details.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mem_key": {"type": "string", "description": "Key for the memory entry."},
-                    "interaction_data": {"type": "object", "description": "Data to consolidate (dict)."}
-                },
-                "required": ["mem_key", "interaction_data"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "advanced_memory_retrieve",
-            "description": "Retrieve relevant memories via embedding similarity. Use before queries to augment context efficiently.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Query string for similarity search."},
-                    "top_k": {"type": "integer", "description": "Number of top results (default 5)."}
-                },
-                "required": ["query"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "advanced_memory_prune",
-            "description": "Prune low-salience memories to optimize storage.",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "code_generator_expert",
-            "description": "Delegate to a fast code generation expert. Provide task context, get Python code output.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "task_context": {"type": "string", "description": "Description of the code to generate."}
-                },
-                "required": ["task_context"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "debugger_expert",
-            "description": "Delegate to a debugging specialist. Provide code snippet, get analysis and fixes.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "code_snippet": {"type": "string", "description": "Code to debug."}
-                },
-                "required": ["code_snippet"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "optimizer_expert",
-            "description": "Delegate to a performance optimizer. Provide code snippet, get improvement suggestions.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "code_snippet": {"type": "string", "description": "Code to optimize."}
-                },
-                "required": ["code_snippet"]
-            }
-        }
-    },
-]
 
 # API Wrapper with Streaming and Tool Handling
 def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, enable_tools=False):
@@ -1072,8 +796,9 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
     full_response = ""
     def generate(current_messages):
         nonlocal full_response
-        max_iterations = 10  # Balanced for agentic tasks without high loop risk
+        max_iterations = 10 # Reduce from 10 to fail faster if looping (adjust as needed)
         iteration = 0
+        previous_tool_calls = set()  # Track to detect loops
         while iteration < max_iterations:
             iteration += 1
             print(f"[LOG] API Call Iteration: {iteration}")  # Debug
@@ -1096,19 +821,21 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
                     yield content
                     has_content = True
                 if delta.tool_calls:
-                    tool_calls += delta.tool_calls
+                    tool_calls += delta.tool_calls  # Consider merging properly if partial
             full_response += chunk_response
-            if not tool_calls and not has_content:
-                print("[DEBUG] No progress in this iteration; breaking early")
-                break  # Graceful exit if nothing new
+            if not has_content and not tool_calls:
+                print("[DEBUG] No progress; breaking")
+                break
             if not tool_calls:
-                break  # Normal done
-            yield "\nProcessing additional steps...\n"  # User-friendly feedback
-            # Process all tool calls in batch
+                break  # Done if no tools
+            yield "\nProcessing tools...\n"
+            # Process tools
             tools_processed = False
+            current_tool_names = set()
             for tool_call in tool_calls:
                 tools_processed = True
                 func_name = tool_call.function.name
+                current_tool_names.add(func_name)
                 try:
                     args = json.loads(tool_call.function.arguments)
                     if func_name == "fs_read_file":
@@ -1184,11 +911,16 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
                 yield f"\n[Tool Result ({func_name}): {result}]\n"
                 # Append to messages for next iteration
                 current_messages.append({"role": "tool", "content": result, "tool_call_id": tool_call.id})
+            # New: Detect potential tool loop (e.g., same tools repeating)
+            if current_tool_names == previous_tool_calls:
+                yield "Detected potential tool loop—summarizing and stopping."
+                break
+            previous_tool_calls = current_tool_names
             if not tools_processed:
                 print("[DEBUG] No meaningful tools processed; breaking early")
                 break  # Added: Prevent unnecessary iterations if no tools were actually handled
         if iteration >= max_iterations:
-            yield "Reached max steps—summarizing results so far to avoid delays."
+            yield "Max iterations reached—summarizing results."
     try:
         if stream:
             return generate(api_messages)  # Return generator for streaming
@@ -1252,7 +984,7 @@ def chat_page():
     # Sidebar: Settings and History
     with st.sidebar:
         st.header("Chat Settings")
-        model = st.selectbox("Select Model", ["grok-4-0709", "grok-3-mini", "grok-code-fast-1"], key="model_select")  # Extensible
+        model = st.selectbox("Select Model", ["grok-4", "grok-3-mini", "grok-code-fast-1"], key="model_select")  # Extensible
         # Load Prompt Files Dynamically
         prompt_files = load_prompt_files()
         if not prompt_files:
