@@ -1,5 +1,5 @@
 ###
-# app.py: Standalone Streamlit Chat App for xAI API (Grok-4)
+# app.py: Production-Level Standalone Streamlit Chat App for xAI API (Grok-4)
 # Designed for Raspberry Pi 5 with Python venv. Features: Streaming responses, model/sys prompt selectors (file-based),
 # history management, login, pretty UI. Uses OpenAI SDK for compatibility and streaming (xAI is compatible).
 # Added: Sandboxed R/W file access tools (enable in sidebar; AI can invoke via tool calls).
@@ -247,7 +247,6 @@ def fs_mkdir(dir_path: str) -> str:
     except Exception as e:
         return f"Error creating directory: {str(e)}"
 
-# Time Tool Function
 def get_current_time(sync: bool = False, format: str = 'iso') -> str:
     """Fetch current time: host default, NTP if sync=true."""
     try:
@@ -273,7 +272,6 @@ def get_current_time(sync: bool = False, format: str = 'iso') -> str:
     except Exception as e:
         return f"Time error: {str(e)}"
 
-# Code Execution Function
 def code_execution(code: str) -> str:
     """Execute Python code safely in a stateful REPL and return output/errors."""
     if 'repl_namespace' not in st.session_state:
@@ -291,7 +289,6 @@ def code_execution(code: str) -> str:
     finally:
         sys.stdout = old_stdout
 
-# NEW: Memory Functions (Hybrid: Cache + DB)
 def memory_insert(user: str, convo_id: int, mem_key: str, mem_value: dict) -> str:
     """Insert/update memory key-value (value as dict, stored as JSON). Syncs to DB."""
     try:
@@ -339,15 +336,15 @@ def memory_query(user: str, convo_id: int, mem_key: str = None, limit: int = 10)
     except Exception as e:
         return f"Error querying memory: {str(e)}"
 
-# NEW: Advanced Memory Functions (Brain-inspired)
+# Advanced Memory Functions (Brain-inspired)
 def advanced_memory_consolidate(user: str, convo_id: int, mem_key: str, interaction_data: dict) -> str:
-    """Consolidate: Summarize (via Grok-4 call), embed, store hierarchically."""
+    """Consolidate: Summarize (via Grok call), embed, store hierarchically."""
     try:
         # Summarize using Grok-4 (simple API call; assume client is available)
-        client = OpenAI(api_key=API_KEY, base_url="https://api.x.ai/v1")
+        client = OpenAI(api_key=API_KEY, base_url="https://api.x.ai/v1/completions")
         summary_response = client.chat.completions.create(
-            model="grok-4-0709",  # Or your default model
-            messages=[{"role": "system", "content": "Summarize this in 1 sentence:"},
+            model="grok-code-fast-1",  # Or your default model
+            messages=[{"role": "system", "content": "Summarize this in max 3 sentences:"},
                       {"role": "user", "content": json.dumps(interaction_data)}],
             stream=False
         )
@@ -427,7 +424,7 @@ def advanced_memory_prune(user: str, convo_id: int) -> str:
     except Exception as e:
         return f"Error pruning memory: {str(e)}"
 
-# NEW: Git Ops Tool
+# Git Ops Tool
 def git_ops(operation: str, repo_path: str = "", **kwargs) -> str:
     """Perform basic Git operations in sandboxed repo."""
     if not repo_path:
@@ -466,7 +463,7 @@ def git_ops(operation: str, repo_path: str = "", **kwargs) -> str:
     except Exception as e:
         return f"Git error: {str(e)}"
 
-# NEW: DB Query Tool
+# DB Query Tool
 def db_query(db_path: str, query: str, params: list = []) -> str:
     """Interact with local SQLite in sandbox."""
     safe_db = os.path.abspath(os.path.normpath(os.path.join(SANDBOX_DIR, db_path)))
@@ -489,7 +486,7 @@ def db_query(db_path: str, query: str, params: list = []) -> str:
         if db_conn:
             db_conn.close()
 
-# NEW: Shell Exec Tool
+# Shell Exec Tool
 WHITELISTED_COMMANDS = ['ls', 'grep', 'sed', 'cat', 'echo', 'pwd']  # Add more safe ones as needed
 
 def shell_exec(command: str) -> str:
@@ -503,7 +500,7 @@ def shell_exec(command: str) -> str:
     except Exception as e:
         return f"Shell error: {str(e)}"
 
-# NEW: Code Lint Tool
+# Code Lint Tool
 def code_lint(language: str, code: str) -> str:
     """Lint and format code snippets."""
     if language.lower() != 'python':
@@ -514,11 +511,11 @@ def code_lint(language: str, code: str) -> str:
     except Exception as e:
         return f"Lint error: {str(e)}"
 
-# NEW: API Simulate Tool
+# API Simulate Tool
 API_WHITELIST = [
     'https://jsonplaceholder.typicode.com/',
     'https://api.openweathermap.org/'  # Assuming free basics
-]  # Add more public free APIs
+]  # Add more public APIs
 
 def api_simulate(url: str, method: str = 'GET', data: dict = None, mock: bool = True) -> str:
     """Simulate or perform API calls."""
@@ -537,8 +534,246 @@ def api_simulate(url: str, method: str = 'GET', data: dict = None, mock: bool = 
         return resp.text
     except Exception as e:
         return f"API error: {str(e)}"
+        
 
-# Tool Schema for Structured Outputs (Including New Tools)
+# Tool Schema for Structured Outputs
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "fs_read_file",
+            "description": "Read the content of a file in the sandbox directory (./sandbox/). Supports relative paths (e.g., 'subdir/test.txt'). Use for fetching data.",
+            "parameters": {
+                "type": "object",
+                "properties": {"file_path": {"type": "string", "description": "Relative path to the file (e.g., subdir/test.txt)."}
+                },
+                "required": ["file_path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fs_write_file",
+            "description": "Write content to a file in the sandbox directory (./sandbox/). Supports relative paths (e.g., 'subdir/newfile.txt'). Use for saving or updating files. If 'Love' is in file_path or content, optionally add ironic flair like 'LOVE <3' for fun.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Relative path to the file (e.g., subdir/newfile.txt)."},
+                    "content": {"type": "string", "description": "Content to write."}
+                },
+                "required": ["file_path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fs_list_files",
+            "description": "List all files in a directory within the sandbox (./sandbox/). Supports relative paths (default: root). Use to check available files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dir_path": {"type": "string", "description": "Relative path to the directory (e.g., subdir). Optional; defaults to root."}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fs_mkdir",
+            "description": "Create a new directory in the sandbox (./sandbox/). Supports relative/nested paths (e.g., 'subdir/newdir'). Use to organize files.",
+            "parameters": {
+                "type": "object",
+                "properties": {"dir_path": {"type": "string", "description": "Relative path for the new directory (e.g., subdir/newdir)."}},
+                "required": ["dir_path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "Fetch current datetime. Use host clock by default; sync with NTP if requested for precision.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sync": {"type": "boolean", "description": "True for NTP sync (requires network), false for local host time. Default: false."},
+                    "format": {"type": "string", "description": "Output format: 'iso' (default), 'human', 'json'."}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_execution",
+            "description": "Execute provided code in a stateful REPL environment and return output or errors for verification. Supports Python with various libraries (e.g., numpy, sympy, pygame). No internet access or package installation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": { "type": "string", "description": "The code snippet to execute." }
+                },
+                "required": ["code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_insert",
+            "description": "Insert or update a memory key-value pair (value as JSON dict) for logging/metadata. Use for fast persistent storage without files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mem_key": {"type": "string", "description": "Key for the memory entry (e.g., 'chat_log_1')."},
+                    "mem_value": {"type": "object", "description": "Value as dict (e.g., {'content': 'Log text'})."}
+                },
+                "required": ["mem_key", "mem_value"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_query",
+            "description": "Query memory: specific key or last N entries. Returns JSON. Use for recalling logs without FS reads.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mem_key": {"type": "string", "description": "Specific key to query (optional)."},
+                    "limit": {"type": "integer", "description": "Max recent entries if no key (default 10)."}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_ops",
+            "description": "Basic Git operations in sandbox (init, commit, branch, diff). No remote operations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {"type": "string", "enum": ["init", "commit", "branch", "diff"]},
+                    "repo_path": {"type": "string", "description": "Relative path to repo."},
+                    "message": {"type": "string", "description": "Commit message (for commit)."},
+                    "name": {"type": "string", "description": "Branch name (for branch)."}
+                },
+                "required": ["operation", "repo_path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_query",
+            "description": "Interact with local SQLite database in sandbox (create, insert, query).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "db_path": {"type": "string", "description": "Relative path to DB file."},
+                    "query": {"type": "string", "description": "SQL query."},
+                    "params": {"type": "array", "items": {"type": "string"}, "description": "Query parameters."}
+                },
+                "required": ["db_path", "query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "shell_exec",
+            "description": "Run safe whitelisted shell commands in sandbox (e.g., ls, grep).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Shell command string."}
+                },
+                "required": ["command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_lint",
+            "description": "Lint and auto-format code (Python with Black).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {"type": "string", "description": "Language (python)."},
+                    "code": {"type": "string", "description": "Code snippet."}
+                },
+                "required": ["language", "code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "api_simulate",
+            "description": "Simulate API calls with mock or fetch from public APIs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "API URL."},
+                    "method": {"type": "string", "description": "GET/POST (default GET)."},
+                    "data": {"type": "object", "description": "POST data."},
+                    "mock": {"type": "boolean", "description": "True for mock (default)."}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "advanced_memory_consolidate",
+            "description": "Brain-like consolidation: Summarize and embed data for hierarchical storage. Use for coding logs to create semantic summaries and episodic details.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mem_key": {"type": "string", "description": "Key for the memory entry."},
+                    "interaction_data": {"type": "object", "description": "Data to consolidate (dict)."}
+                },
+                "required": ["mem_key", "interaction_data"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "advanced_memory_retrieve",
+            "description": "Retrieve relevant memories via embedding similarity. Use before queries to augment context efficiently.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Query string for similarity search."},
+                    "top_k": {"type": "integer", "description": "Number of top results (default 5)."}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "advanced_memory_prune",
+            "description": "Prune low-salience memories to optimize storage.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    }
+]
+# Tool Schema for Structured Outputs
 TOOLS = [
     {
         "type": "function",
@@ -652,7 +887,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: Git Ops
     {
         "type": "function",
         "function": {
@@ -670,7 +904,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: DB Query
     {
         "type": "function",
         "function": {
@@ -687,7 +920,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: Shell Exec
     {
         "type": "function",
         "function": {
@@ -702,7 +934,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: Code Lint
     {
         "type": "function",
         "function": {
@@ -718,7 +949,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: API Simulate
     {
         "type": "function",
         "function": {
@@ -736,7 +966,6 @@ TOOLS = [
             }
         }
     },
-    # NEW: Advanced Memory Tools
     {
         "type": "function",
         "function": {
@@ -778,7 +1007,49 @@ TOOLS = [
                 "required": []
             }
         }
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_generator_expert",
+            "description": "Delegate to a fast code generation expert. Provide task context, get Python code output.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_context": {"type": "string", "description": "Description of the code to generate."}
+                },
+                "required": ["task_context"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "debugger_expert",
+            "description": "Delegate to a debugging specialist. Provide code snippet, get analysis and fixes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code_snippet": {"type": "string", "description": "Code to debug."}
+                },
+                "required": ["code_snippet"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "optimizer_expert",
+            "description": "Delegate to a performance optimizer. Provide code snippet, get improvement suggestions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code_snippet": {"type": "string", "description": "Code to optimize."}
+                },
+                "required": ["code_snippet"]
+            }
+        }
+    },
 ]
 
 # API Wrapper with Streaming and Tool Handling
@@ -902,7 +1173,7 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
                     elif func_name == "advanced_memory_prune":
                         user = st.session_state['user']
                         convo_id = st.session_state.get('current_convo_id', 0)
-                        result = advanced_memory_prune(user, convo_id)
+                        result = advanced_memory_prune(user, convo_id)                     
                     else:
                         result = "Unknown tool."
                 except Exception as e:
