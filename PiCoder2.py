@@ -1,4 +1,3 @@
-###
 # app.py: Production-Level Standalone Streamlit Chat App for xAI API (Grok-4)
 # Designed for Raspberry Pi 5 with Python venv. Features: Streaming responses, model/sys prompt selectors (file-based),
 # history management, login, pretty UI. Uses OpenAI SDK for compatibility and streaming (xAI is compatible).
@@ -10,6 +9,7 @@
 # Updated: Added new tools - git_ops, db_query, shell_exec, code_lint, api_simulate.
 # New: Brain-inspired advanced memory tools using sentence-transformers for embeddings.
 # Updated: Integrated sqlite-vec for efficient vector similarity searches in advanced memory retrieval.
+# Upodate: Web Search - langsearch_web_search
 import streamlit as st
 import os
 from openai import OpenAI  # Using OpenAI SDK for xAI compatibility and streaming
@@ -38,6 +38,9 @@ load_dotenv()
 API_KEY = os.getenv("XAI_API_KEY")
 if not API_KEY:
     st.error("XAI_API_KEY not set in .env! Please add it and restart.")
+LANGSEARCH_API_KEY = os.getenv("LANGSEARCH_API_KEY")
+if not LANGSEARCH_API_KEY:
+    st.warning("LANGSEARCH_API_KEY not set in .env—web search tool will fail.")
 
 # Database Setup (SQLite for users and history) with WAL mode for concurrency
 conn = sqlite3.connect('chatapp.db', check_same_thread=False)
@@ -537,7 +540,28 @@ def api_simulate(url: str, method: str = 'GET', data: dict = None, mock: bool = 
     except Exception as e:
         return f"API error: {str(e)}"
         
-
+def langsearch_web_search(query: str, freshness: str = "noLimit", summary: bool = True, count: int = 10) -> str:
+    """Perform a web search using LangSearch API and return results as JSON."""
+    if not LANGSEARCH_API_KEY:
+        return "LangSearch API key not set—configure in .env."
+    url = "https://api.langsearch.com/v1/web-search"
+    payload = json.dumps({
+        "query": query,
+        "freshness": freshness,
+        "summary": summary,
+        "count": count
+    })
+    headers = {
+        'Authorization': f'Bearer {LANGSEARCH_API_KEY}',
+        'Content-Type': 'application/json'
+    }
+    try:
+        response = requests.post(url, headers=headers, data=payload)
+        response.raise_for_status()
+        return json.dumps(response.json())  # Return full JSON for AI to parse
+    except Exception as e:
+        return f"LangSearch error: {str(e)}"
+        
 # Tool Schema for Structured Outputs
 TOOLS = [
     {
@@ -773,7 +797,24 @@ TOOLS = [
                 "required": []
             }
         }
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "langsearch_web_search",
+            "description": "Search the web using LangSearch API for relevant results, snippets, and optional summaries. Supports time filters and limits up to 10 results.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query (supports operators like site:example.com)."},
+                    "freshness": {"type": "string", "description": "Time filter: oneDay, oneWeek, oneMonth, oneYear, or noLimit (default).", "enum": ["oneDay", "oneWeek", "oneMonth", "oneYear", "noLimit"]},
+                    "summary": {"type": "boolean", "description": "Include long text summaries (default True)."},
+                    "count": {"type": "integer", "description": "Number of results (1-10, default 5)."}
+                },
+                "required": ["query"]
+            }
+        }
+    },
 ]
 
 # API Wrapper with Streaming and Tool Handling
@@ -900,7 +941,13 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
                     elif func_name == "advanced_memory_prune":
                         user = st.session_state['user']
                         convo_id = st.session_state.get('current_convo_id', 0)
-                        result = advanced_memory_prune(user, convo_id)                     
+                        result = advanced_memory_prune(user, convo_id)
+                    elif func_name == "langsearch_web_search":
+                        query = args['query']
+                        freshness = args.get('freshness', "noLimit")
+                        summary = args.get('summary', True)
+                        count = args.get('count', 10)
+                        result = langsearch_web_search(query, freshness, summary, count)
                     else:
                         result = "Unknown tool."
                 except Exception as e:
@@ -944,7 +991,7 @@ def call_xai_api(model, messages, sys_prompt, stream=True, image_files=None, ena
 
 # Login Page
 def login_page():
-    st.title("Welcome to Grok Chat App")
+    st.title("Welcome to PiCoder")
     st.subheader("Login or Register")
     # Tabs for Login/Register
     tab1, tab2 = st.tabs(["Login", "Register"])
